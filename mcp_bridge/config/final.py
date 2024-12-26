@@ -32,6 +32,9 @@ class Network(BaseModel):
     host: str = Field("0.0.0.0", description="Host of the network")
     port: int = Field(8000, description="Port of the network")
 
+class Database(BaseModel):
+    url: str = Field("sqlite+aiosqlite:///monitoring.db", description="Database URL")
+    echo: bool = Field(False, description="Echo SQL queries")
 
 class Settings(BaseSettings):
     inference_server: InferenceServer = Field(
@@ -50,6 +53,11 @@ class Settings(BaseSettings):
     network: Network = Field(
         default_factory=lambda: Network.model_construct(),
         description="network config",
+    )
+
+    database: Database = Field(
+        default_factory=lambda: Database.model_construct(),
+        description="database config",
     )
 
     model_config = SettingsConfigDict(
