@@ -3,16 +3,25 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional
 from fastapi import HTTPException
 from mcp import ClientSession, McpError
-from mcp.types import CallToolResult, ListToolsResult, TextContent, ListResourcesResult, ListPromptsResult, GetPromptResult
+from mcp.types import (
+    CallToolResult,
+    ListToolsResult,
+    TextContent,
+    ListResourcesResult,
+    ListPromptsResult,
+    GetPromptResult,
+)
 from loguru import logger
 from models.mcpServerStatus import McpServerStatus
 
 
 class GenericMcpClient(ABC):
     name: str
+    enabled: bool
+    disabled_tools: set[str]
     config: Any
     client: Any
-    session: ClientSession
+    session: ClientSession | None
 
     def __init__(self, name: str) -> None:
         super().__init__()
@@ -23,13 +32,13 @@ class GenericMcpClient(ABC):
         pass
 
     async def _session_maintainer(self):
-        while True:
+        while self.enabled:
             try:
                 await self._maintain_session()
             except Exception as e:
                 logger.trace(f"failed to maintain session for {self.name}: {e}")
                 await asyncio.sleep(0.5)
-    
+
     async def start(self):
         asyncio.create_task(self._session_maintainer())
 
@@ -37,6 +46,7 @@ class GenericMcpClient(ABC):
         self, name: str, arguments: dict, timeout: Optional[int] = None
     ) -> CallToolResult:
         await self._wait_for_session()
+        assert self.session is not None
 
         try:
             async with asyncio.timeout(timeout):
@@ -60,9 +70,12 @@ class GenericMcpClient(ABC):
                 content=[TextContent(type="text", text=f"Error calling {name}: {e}")],
                 isError=True,
             )
-        
-    async def get_prompt(self, prompt: str, arguments: dict[str, str]) -> GetPromptResult | None:
+
+    async def get_prompt(
+        self, prompt: str, arguments: dict[str, str]
+    ) -> GetPromptResult | None:
         await self._wait_for_session()
+        assert self.session is not None
 
         try:
             return await self.session.get_prompt(prompt, arguments)
@@ -75,6 +88,7 @@ class GenericMcpClient(ABC):
         # if session is None, then the client is not running
         # wait to see if it restarts
         await self._wait_for_session()
+        assert self.session is not None
 
         try:
             return await self.session.list_tools()
@@ -82,17 +96,28 @@ class GenericMcpClient(ABC):
             logger.error(f"error listing tools: {e}")
             return ListToolsResult(tools=[])
 
+    async def list_enabled_tools(self) -> ListToolsResult:
+        """List enabled tools"""
+        tools = await self.list_tools()
+        return ListToolsResult(
+            tools=[tool for tool in tools.tools if tool.name not in self.disabled_tools]
+        )
+
     async def list_resources(self) -> ListResourcesResult:
         await self._wait_for_session()
-        try: 
+        assert self.session is not None
+
+        try:
             return await self.session.list_resources()
         except Exception as e:
             logger.error(f"error listing resources: {e}")
             return ListResourcesResult(resources=[])
-        
+
     async def list_prompts(self) -> ListPromptsResult:
         await self._wait_for_session()
-        try: 
+        assert self.session is not None
+
+        try:
             return await self.session.list_prompts()
         except Exception as e:
             logger.error(f"error listing prompts: {e}")
@@ -106,14 +131,38 @@ class GenericMcpClient(ABC):
 
         except asyncio.TimeoutError:
             if http_error:
-                raise HTTPException(status_code=500, detail="Could not connect to MCP server.")
-            
+                raise HTTPException(
+                    status_code=500, detail="Could not connect to MCP server."
+                )
+
             raise TimeoutError("Session initialization timed out.")
-        
+
     async def status(self) -> McpServerStatus:
         """Get the status of the MCP server"""
         return McpServerStatus(
-            name=self.name,
-            online=self.session is not None,
-            enabled=True
+            name=self.name, online=self.session is not None, enabled=True
         )
+
+    async def disable(self):
+        """Disable the MCP server"""
+        self.session = None
+        self.enabled = False
+
+    async def enable(self):
+        """Enable the MCP server"""
+        self.enabled = True
+        await self.start()
+
+    async def disable_tool(self, tool_name: str) -> bool:
+        """Disable a tool"""
+        if tool_name not in self.disabled_tools:
+            self.disabled_tools.add(tool_name)
+            return True
+        return False
+
+    async def enable_tool(self, tool_name: str) -> bool:
+        """Enable a tool"""
+        if tool_name in self.disabled_tools:
+            self.disabled_tools.remove(tool_name)
+            return True
+        return False
