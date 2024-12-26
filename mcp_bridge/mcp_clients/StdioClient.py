@@ -38,7 +38,7 @@ class StdioClient(GenericMcpClient):
                 self.session = session
 
                 try:
-                    while True:
+                    while self.enabled:
                         await asyncio.sleep(10)
                         if config.logging.log_server_pings:
                             logger.debug(f"pinging session for {self.name}")
