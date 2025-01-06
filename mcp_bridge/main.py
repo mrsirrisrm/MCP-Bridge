@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from endpoints import router as endpointRouter
+from api_endpoints.openai import router as endpointRouter
 from mcpManagement import router as mcpRouter
 from health import router as healthRouter
 from mcp_server import router as mcp_server_router

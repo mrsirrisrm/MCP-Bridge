@@ -17,7 +17,8 @@ from tool_mappers import mcp2openai
 from loguru import logger
 from httpx_sse import aconnect_sse
 
-from sse_starlette.sse import EventSourceResponse, ServerSentEvent
+from sse_starlette.sse import EventSourceResponse
+from sse_starlette.event import ServerSentEvent
 
 
 async def streaming_chat_completions(request: CreateChatCompletionRequest):
