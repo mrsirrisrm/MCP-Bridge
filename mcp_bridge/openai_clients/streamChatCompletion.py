@@ -8,6 +8,9 @@ from lmos_openai_types import (
     CreateChatCompletionStreamResponse,
     Function1,
 )
+
+from mcp_bridge.inference_engine_mappers.chat.requester import chat_completion_requester
+from mcp_bridge.inference_engine_mappers.chat.stream_responder import chat_completion_stream_responder
 from .utils import call_tool, chat_completion_add_tools
 from mcp_bridge.models import SSEData
 from .genericHttpxClient import client
@@ -46,9 +49,7 @@ async def chat_completions(request: CreateChatCompletionRequest):
         #     exclude_defaults=True, exclude_none=True, exclude_unset=True
         # )
 
-        json_data = json.dumps(request.model_dump(
-            exclude_defaults=True, exclude_none=True, exclude_unset=True
-        ))
+        json_data = json.dumps(chat_completion_requester(request))
 
         # logger.debug(json_data)
 
@@ -100,9 +101,7 @@ async def chat_completions(request: CreateChatCompletionRequest):
                     logger.debug(f"failed to lowercase finish_reason: {e}")
 
                 try:
-                    parsed_data = CreateChatCompletionStreamResponse.model_validate_json(
-                        data
-                    )
+                    parsed_data = chat_completion_stream_responder(json.loads(data))
                 except Exception as e:
                     logger.debug(data)
                     raise e
