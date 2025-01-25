@@ -1,12 +1,13 @@
+import json
 from loguru import logger
 from mcp import SamplingMessage
 import mcp.types as types
-from lmos_openai_types import CreateChatCompletionResponse
 from mcp.types import CreateMessageRequestParams, CreateMessageResult
 
 from mcp_bridge.config import config
 from mcp_bridge.http_clients import get_client
 from mcp_bridge.sampling.modelSelector import find_best_model
+from mcp_bridge.inference_engine_mappers.chat.generic import chat_completion_generic_response
 
 
 def make_message(x: SamplingMessage):
@@ -68,7 +69,7 @@ async def handle_sampling_message(
     text = resp.text
     logger.debug(text)
 
-    response = CreateChatCompletionResponse.model_validate_json(text)
+    response = chat_completion_generic_response(json.loads(text))
 
     logger.debug("sampling request received from endpoint")
 
