@@ -4,7 +4,7 @@ from mcp_bridge.config import config
 
 # change this if you want to hard fork the repo
 # its used to show ranking on openrouter and other inference providers
-BRIDGE_REPO_URL = "https://github.com/lmos-io/mcp-bridge"
+BRIDGE_REPO_URL = "https://github.com/SecretiveShell/MCP-Bridge"
 BRIDGE_APP_TITLE = "MCP Bridge"
 
 
@@ -22,7 +22,7 @@ def get_client() -> AsyncClient:
     
     # openrouter
     if config.inference_server.type == "openrouter":
-        client.headers["Authorization"] = f"Bearer {config.inference_server.api_key}"
+        client.headers["authorization"] = f"Bearer {config.inference_server.api_key}"
         client.headers["HTTP-Referer"] = BRIDGE_REPO_URL
         client.headers["X-Title"] = BRIDGE_APP_TITLE
         return client
