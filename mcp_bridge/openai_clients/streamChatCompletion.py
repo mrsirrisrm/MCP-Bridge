@@ -1,6 +1,7 @@
 import json
+import time
 from typing import Optional
-from fastapi import HTTPException
+from secrets import token_hex
 from lmos_openai_types import (
     ChatCompletionMessageToolCall,
     ChatCompletionRequestMessage,
@@ -14,26 +15,37 @@ from mcp_bridge.inference_engine_mappers.chat.stream_responder import chat_compl
 from .utils import call_tool, chat_completion_add_tools
 from mcp_bridge.models import SSEData
 from mcp_bridge.http_clients import get_client
-from mcp_bridge.mcp_clients.McpClientManager import ClientManager
-from mcp_bridge.tool_mappers import mcp2openai
 from loguru import logger
 from httpx_sse import aconnect_sse
 
-from sse_starlette.sse import EventSourceResponse, ServerSentEvent
+from sse_starlette.sse import EventSourceResponse
+from sse_starlette.event import ServerSentEvent
 
 
 async def streaming_chat_completions(request: CreateChatCompletionRequest):
     # raise NotImplementedError("Streaming Chat Completion is not supported")
 
-    try:
         return EventSourceResponse(
             content=chat_completions(request),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache"},
         )
 
-    except Exception as e:
-        logger.error(e)
+def format_error_as_sse(message: str) -> str:
+    return SSEData.model_validate({
+        "id": f"error-{token_hex(16)}",
+        "provider": "MCP-Bridge",
+        "object": "chat.completion.chunk",
+        "created": int(time.time()),
+        "model": "MCP-Bridge",
+        "choices": [{
+            "index": 0,
+            "delta": {
+                "role": "assistant",
+                "content": message,
+            },
+        }]
+    }).model_dump_json()
 
 
 async def chat_completions(request: CreateChatCompletionRequest):
@@ -74,10 +86,17 @@ async def chat_completions(request: CreateChatCompletionRequest):
                 if "application/json" in content_type:
                     logger.error(f"Unexpected Content-Type: {content_type}")
                     error_data = await event_source.response.aread()
-                    logger.error(f"Request URL: {event_source.response.url}")
-                    logger.error(f"Response Status: {event_source.response.status_code}")
-                    logger.error(f"Response Data: {error_data.decode(event_source.response.encoding or 'utf-8')}")
-                    raise HTTPException(status_code=500, detail="Unexpected Content-Type")
+                    # logger.error(f"Request URL: {event_source.response.url}")
+                    # logger.error(f"Response Status: {event_source.response.status_code}")
+                    # logger.error(f"Response Data: {error_data.decode(event_source.response.encoding or 'utf-8')}")
+                    # raise HTTPException(status_code=500, detail="Unexpected Content-Type")
+                    data = json.loads(error_data.decode(event_source.response.encoding or 'utf-8'))
+                    if message := data.get("error", {}).get("message"):
+                        logger.error(f"Upstream error: {message}")
+                        yield format_error_as_sse(message)
+                        yield ['DONE'] # ServerSentEvent(event="message", data="[DONE]", id=None, retry=None)
+                        return
+                    
 
                 if "text/event-stream" not in content_type:
                     logger.error(f"Unexpected Content-Type: {content_type}")
@@ -86,7 +105,9 @@ async def chat_completions(request: CreateChatCompletionRequest):
                     logger.error(f"Request Data: {json_data}")
                     logger.error(f"Response Status: {event_source.response.status_code}")
                     logger.error(f"Response Data: {error_data.decode(event_source.response.encoding or 'utf-8')}")
-                    raise HTTPException(status_code=500, detail="Unexpected Content-Type")
+                    yield format_error_as_sse("Upsteam error: Unexpected Content-Type")
+                    yield ServerSentEvent(event="message", data="[DONE]", id=None, retry=None)
+                    return
 
             # iterate over the SSE stream
             async for sse in event_source.aiter_sse():
