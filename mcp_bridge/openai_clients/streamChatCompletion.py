@@ -65,10 +65,20 @@ async def chat_completions(request: CreateChatCompletionRequest):
             get_client(), "post", "/chat/completions", content=json_data
         ) as event_source:
             
+            logger.debug(event_source.response.status_code)
+            
             # check if the content type is correct because the aiter_sse method
             # will raise an exception if the content type is not correct
             if "Content-Type" in event_source.response.headers:
                 content_type = event_source.response.headers["Content-Type"]
+                if "application/json" in content_type:
+                    logger.error(f"Unexpected Content-Type: {content_type}")
+                    error_data = await event_source.response.aread()
+                    logger.error(f"Request URL: {event_source.response.url}")
+                    logger.error(f"Response Status: {event_source.response.status_code}")
+                    logger.error(f"Response Data: {error_data.decode(event_source.response.encoding or 'utf-8')}")
+                    raise HTTPException(status_code=500, detail="Unexpected Content-Type")
+
                 if "text/event-stream" not in content_type:
                     logger.error(f"Unexpected Content-Type: {content_type}")
                     error_data = await event_source.response.aread()
@@ -93,12 +103,6 @@ async def chat_completions(request: CreateChatCompletionRequest):
                 if data == "[DONE]":
                     logger.debug("inference serverstream done")
                     break
-
-                # for some reason openrouter uses uppercase for finish_reason
-                try:
-                    data['choices'][0]['finish_reason'] = data['choices'][0]['finish_reason'].lower() # type: ignore
-                except Exception as e:
-                    logger.debug(f"failed to lowercase finish_reason: {e}")
 
                 try:
                     parsed_data = chat_completion_stream_responder(json.loads(data))
@@ -157,7 +161,9 @@ async def chat_completions(request: CreateChatCompletionRequest):
 
         # ideally we should check this properly
         assert last is not None
-        assert last.choices[0].finish_reason is not None
+        if last.choices[0].finish_reason is None:
+            logger.debug("no finish reason found")
+            continue
 
         if last.choices[0].finish_reason.value in ["stop", "length"]:
             logger.debug("no tool calls found")

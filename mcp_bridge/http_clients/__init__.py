@@ -22,7 +22,7 @@ def get_client() -> AsyncClient:
     
     # openrouter
     if config.inference_server.type == "openrouter":
-        client.headers["authorization"] = f"Bearer {config.inference_server.api_key}"
+        client.headers["Authorization"] = fr"Bearer {config.inference_server.api_key}"
         client.headers["HTTP-Referer"] = BRIDGE_REPO_URL
         client.headers["X-Title"] = BRIDGE_APP_TITLE
         return client
