@@ -19,14 +19,14 @@ def get_client() -> AsyncClient:
     if config.inference_server.type == "openai":
         client.headers["Authorization"] = f"Bearer {config.inference_server.api_key}"
         return client
-    
+
     # openrouter
     if config.inference_server.type == "openrouter":
-        client.headers["Authorization"] = fr"Bearer {config.inference_server.api_key}"
+        client.headers["Authorization"] = rf"Bearer {config.inference_server.api_key}"
         client.headers["HTTP-Referer"] = BRIDGE_REPO_URL
         client.headers["X-Title"] = BRIDGE_APP_TITLE
         return client
-    
+
     # gemini models
     if config.inference_server.type == "google":
         pass

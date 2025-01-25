@@ -8,23 +8,29 @@ from mcp_bridge.config import config
 from mcp_bridge.http_clients import get_client
 from mcp_bridge.sampling.modelSelector import find_best_model
 
+
 def make_message(x: SamplingMessage):
     if x.content.type == "text":
         return {
             "role": x.role,
-            "content": [{
-                "type": "text",
-                "text": x.content.text,
-            }]
+            "content": [
+                {
+                    "type": "text",
+                    "text": x.content.text,
+                }
+            ],
         }
     if x.content.type == "image":
         return {
             "role": x.role,
-            "content": [{
-                "type": "image",
-                "image_url": x.content.data,
-            }]
+            "content": [
+                {
+                    "type": "image",
+                    "image_url": x.content.data,
+                }
+            ],
         }
+
 
 async def handle_sampling_message(
     message: CreateMessageRequestParams,
@@ -32,7 +38,7 @@ async def handle_sampling_message(
     """perform sampling"""
 
     logger.debug(f"sampling message: {message.modelPreferences}")
-    
+
     # select model
     model = config.sampling.models[0]
     if message.modelPreferences is not None:

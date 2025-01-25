@@ -34,8 +34,8 @@ async def openai_chat_completions(request: CreateChatCompletionRequest):
 
 @router.get("/models")
 async def models():
-    """List models. 
-    
+    """List models.
+
     This is a passthrough to the inference server and returns the same response json."""
     response = await get_client().get("/models")
     return response.json()

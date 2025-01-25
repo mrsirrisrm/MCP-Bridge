@@ -11,7 +11,9 @@ from lmos_openai_types import (
 )
 
 from mcp_bridge.inference_engine_mappers.chat.requester import chat_completion_requester
-from mcp_bridge.inference_engine_mappers.chat.stream_responder import chat_completion_stream_responder
+from mcp_bridge.inference_engine_mappers.chat.stream_responder import (
+    chat_completion_stream_responder,
+)
 from .utils import call_tool, chat_completion_add_tools
 from mcp_bridge.models import SSEData
 from mcp_bridge.http_clients import get_client
@@ -25,27 +27,32 @@ from sse_starlette.event import ServerSentEvent
 async def streaming_chat_completions(request: CreateChatCompletionRequest):
     # raise NotImplementedError("Streaming Chat Completion is not supported")
 
-        return EventSourceResponse(
-            content=chat_completions(request),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache"},
-        )
+    return EventSourceResponse(
+        content=chat_completions(request),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache"},
+    )
+
 
 def format_error_as_sse(message: str) -> str:
-    return SSEData.model_validate({
-        "id": f"error-{token_hex(16)}",
-        "provider": "MCP-Bridge",
-        "object": "chat.completion.chunk",
-        "created": int(time.time()),
-        "model": "MCP-Bridge",
-        "choices": [{
-            "index": 0,
-            "delta": {
-                "role": "assistant",
-                "content": message,
-            },
-        }]
-    }).model_dump_json()
+    return SSEData.model_validate(
+        {
+            "id": f"error-{token_hex(16)}",
+            "provider": "MCP-Bridge",
+            "object": "chat.completion.chunk",
+            "created": int(time.time()),
+            "model": "MCP-Bridge",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "role": "assistant",
+                        "content": message,
+                    },
+                }
+            ],
+        }
+    ).model_dump_json()
 
 
 async def chat_completions(request: CreateChatCompletionRequest):
@@ -76,9 +83,8 @@ async def chat_completions(request: CreateChatCompletionRequest):
         async with aconnect_sse(
             get_client(), "post", "/chat/completions", content=json_data
         ) as event_source:
-            
             logger.debug(event_source.response.status_code)
-            
+
             # check if the content type is correct because the aiter_sse method
             # will raise an exception if the content type is not correct
             if "Content-Type" in event_source.response.headers:
@@ -90,23 +96,32 @@ async def chat_completions(request: CreateChatCompletionRequest):
                     # logger.error(f"Response Status: {event_source.response.status_code}")
                     # logger.error(f"Response Data: {error_data.decode(event_source.response.encoding or 'utf-8')}")
                     # raise HTTPException(status_code=500, detail="Unexpected Content-Type")
-                    data = json.loads(error_data.decode(event_source.response.encoding or 'utf-8'))
+                    data = json.loads(
+                        error_data.decode(event_source.response.encoding or "utf-8")
+                    )
                     if message := data.get("error", {}).get("message"):
                         logger.error(f"Upstream error: {message}")
                         yield format_error_as_sse(message)
-                        yield ['DONE'] # ServerSentEvent(event="message", data="[DONE]", id=None, retry=None)
+                        yield [
+                            "DONE"
+                        ]  # ServerSentEvent(event="message", data="[DONE]", id=None, retry=None)
                         return
-                    
 
                 if "text/event-stream" not in content_type:
                     logger.error(f"Unexpected Content-Type: {content_type}")
                     error_data = await event_source.response.aread()
                     logger.error(f"Request URL: {event_source.response.url}")
                     logger.error(f"Request Data: {json_data}")
-                    logger.error(f"Response Status: {event_source.response.status_code}")
-                    logger.error(f"Response Data: {error_data.decode(event_source.response.encoding or 'utf-8')}")
+                    logger.error(
+                        f"Response Status: {event_source.response.status_code}"
+                    )
+                    logger.error(
+                        f"Response Data: {error_data.decode(event_source.response.encoding or 'utf-8')}"
+                    )
                     yield format_error_as_sse("Upsteam error: Unexpected Content-Type")
-                    yield ServerSentEvent(event="message", data="[DONE]", id=None, retry=None)
+                    yield ServerSentEvent(
+                        event="message", data="[DONE]", id=None, retry=None
+                    )
                     return
 
             # iterate over the SSE stream
@@ -130,7 +145,7 @@ async def chat_completions(request: CreateChatCompletionRequest):
                 except Exception as e:
                     logger.debug(data)
                     raise e
-                
+
                 # handle empty response (usually caused by "usage" reporting)
                 if len(parsed_data.choices) == 0:
                     logger.debug("no choices found in response")

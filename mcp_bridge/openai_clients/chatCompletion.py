@@ -1,3 +1,4 @@
+import secrets
 from lmos_openai_types import (
     CreateChatCompletionRequest,
     CreateChatCompletionResponse,
@@ -6,7 +7,6 @@ from lmos_openai_types import (
 
 from .utils import call_tool, chat_completion_add_tools
 from mcp_bridge.http_clients import get_client
-from mcp_bridge.mcp_clients.McpClientManager import ClientManager
 from mcp_bridge.inference_engine_mappers.chat.requester import chat_completion_requester
 from mcp_bridge.inference_engine_mappers.chat.responder import chat_completion_responder
 from loguru import logger
@@ -26,9 +26,9 @@ async def chat_completions(
         text = (
             await get_client().post(
                 "/chat/completions",
-                #content=request.model_dump_json(
+                # content=request.model_dump_json(
                 #    exclude_defaults=True, exclude_none=True, exclude_unset=True
-                #),
+                # ),
                 json=chat_completion_requester(request),
             )
         ).text
@@ -38,11 +38,11 @@ async def chat_completions(
         except Exception as e:
             logger.error(f"Error parsing response: {text}")
             logger.error(e)
-            return # type: ignore
-        
+            return  # type: ignore
+
         if not response.choices:
             logger.error("no choices found in response")
-            return # type: ignore
+            return  # type: ignore
 
         msg = response.choices[0].message
         msg = ChatCompletionRequestMessage(
@@ -89,9 +89,9 @@ async def chat_completions(
                     {
                         "role": "tool",
                         "content": tools_content,
-                        "tool_call_id": tool_call.id,
+                        "tool_call_id": tool_call.id or secrets.token_hex(16),
                     }
                 )
             )
 
-            logger.debug("sending next iteration of chat completion request")
+        logger.debug("sending next iteration of chat completion request")

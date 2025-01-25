@@ -3,6 +3,7 @@ from .openrouter.stream_response import chat_completion_openrouter_stream_respon
 from lmos_openai_types import CreateChatCompletionStreamResponse
 from mcp_bridge.config import config
 
+
 def chat_completion_stream_responder(data: dict) -> CreateChatCompletionStreamResponse:
     client_type = config.inference_server.type
 
@@ -13,4 +14,3 @@ def chat_completion_stream_responder(data: dict) -> CreateChatCompletionStreamRe
         case "openrouter":
             # TODO: implement openrouter responser
             return chat_completion_openrouter_stream_response(data)
-        
