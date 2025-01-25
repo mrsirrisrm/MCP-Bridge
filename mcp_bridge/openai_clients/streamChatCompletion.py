@@ -13,7 +13,7 @@ from mcp_bridge.inference_engine_mappers.chat.requester import chat_completion_r
 from mcp_bridge.inference_engine_mappers.chat.stream_responder import chat_completion_stream_responder
 from .utils import call_tool, chat_completion_add_tools
 from mcp_bridge.models import SSEData
-from .genericHttpxClient import client
+from mcp_bridge.http_clients import get_client
 from mcp_bridge.mcp_clients.McpClientManager import ClientManager
 from mcp_bridge.tool_mappers import mcp2openai
 from loguru import logger
@@ -62,7 +62,7 @@ async def chat_completions(request: CreateChatCompletionRequest):
         tool_call_id: str = ""
 
         async with aconnect_sse(
-            client, "post", "/chat/completions", content=json_data
+            get_client(), "post", "/chat/completions", content=json_data
         ) as event_source:
             
             # check if the content type is correct because the aiter_sse method
@@ -105,6 +105,11 @@ async def chat_completions(request: CreateChatCompletionRequest):
                 except Exception as e:
                     logger.debug(data)
                     raise e
+                
+                # handle empty response (usually caused by "usage" reporting)
+                if len(parsed_data.choices) == 0:
+                    logger.debug("no choices found in response")
+                    continue
 
                 # add the delta to the response content
                 content = parsed_data.choices[0].delta.content

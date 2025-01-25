@@ -13,3 +13,4 @@ def chat_completion_responder(data: dict) -> CreateChatCompletionResponse:
         case "openrouter":
             # TODO: implement openrouter responser
             return chat_completion_openrouter_response(data)
+        

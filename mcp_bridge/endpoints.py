@@ -3,11 +3,11 @@ from fastapi import APIRouter
 from lmos_openai_types import CreateChatCompletionRequest, CreateCompletionRequest
 
 from mcp_bridge.openai_clients import (
-    client,
     completions,
     chat_completions,
     streaming_chat_completions,
 )
+from mcp_bridge.http_clients import get_client
 
 from mcp_bridge.openapi_tags import Tag
 
@@ -34,6 +34,8 @@ async def openai_chat_completions(request: CreateChatCompletionRequest):
 
 @router.get("/models")
 async def models():
-    """List models"""
-    response = await client.get("/models")
+    """List models. 
+    
+    This is a passthrough to the inference server and returns the same response json."""
+    response = await get_client().get("/models")
     return response.json()
