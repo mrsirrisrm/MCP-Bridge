@@ -15,7 +15,7 @@ from mcp_bridge.inference_engine_mappers.chat.stream_responder import (
     chat_completion_stream_responder,
 )
 from .utils import call_tool, chat_completion_add_tools
-from mcp_bridge.models import SSEData
+from mcp_bridge.models import SSEData, upstream_error
 from mcp_bridge.http_clients import get_client
 from loguru import logger
 from httpx_sse import aconnect_sse
@@ -140,11 +140,21 @@ async def chat_completions(request: CreateChatCompletionRequest):
                     logger.debug("inference serverstream done")
                     break
 
+                # try to parse the data as json, if this fails we assume it is an error message
+                # if parsing fails we send the error message to the client
+                dict_data = json.loads(data)
                 try:
-                    parsed_data = chat_completion_stream_responder(json.loads(data))
-                except Exception as e:
+                    parsed_data = chat_completion_stream_responder(dict_data)
+                except Exception:
                     logger.debug(data)
-                    raise e
+                    try:
+                        parsed_error_data = upstream_error.UpstreamError.model_validate_json(data)
+                        yield format_error_as_sse(parsed_error_data.error.message)
+                    except Exception:
+                        yield format_error_as_sse(f"Error parsing response: {data}")
+
+                    yield ServerSentEvent(event="message", data="[DONE]", id=None, retry=None)
+                    return
 
                 # handle empty response (usually caused by "usage" reporting)
                 if len(parsed_data.choices) == 0:
