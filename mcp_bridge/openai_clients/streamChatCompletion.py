@@ -76,6 +76,7 @@ async def chat_completions(request: CreateChatCompletionRequest):
 
         tool_call_name: str = ""
         tool_call_json: str = ""
+        has_tool_calls: bool = False
         should_forward: bool = True
         response_content: str = ""
         tool_call_id: str = ""
@@ -151,7 +152,7 @@ async def chat_completions(request: CreateChatCompletionRequest):
                         parsed_error_data = upstream_error.UpstreamError.model_validate_json(data)
                         yield format_error_as_sse(parsed_error_data.error.message)
                     except Exception:
-                        yield format_error_as_sse(f"Error parsing response: {data}")
+                        yield format_error_as_sse(f"Error parsing response: {json.loads(data)}")
 
                     yield ServerSentEvent(event="message", data="[DONE]", id=None, retry=None)
                     return
@@ -175,6 +176,9 @@ async def chat_completions(request: CreateChatCompletionRequest):
                         fully_done = True
                     else:
                         should_forward = False
+                    
+                    if parsed_data.choices[0].finish_reason.value == "tool_calls":
+                        has_tool_calls = True
 
                 # this manages the incoming tool call schema
                 # most of this is assertions to please mypy
@@ -187,6 +191,8 @@ async def chat_completions(request: CreateChatCompletionRequest):
                     name = parsed_data.choices[0].delta.tool_calls[0].function.name
                     name = name if name is not None else ""
                     tool_call_name = name if tool_call_name == "" else tool_call_name
+
+                    logger.debug(f"ARGS: {parsed_data.choices[0].delta.tool_calls[0].function.arguments}")
 
                     call_id = parsed_data.choices[0].delta.tool_calls[0].id
                     call_id = call_id if call_id is not None else ""
@@ -207,13 +213,15 @@ async def chat_completions(request: CreateChatCompletionRequest):
 
         # ideally we should check this properly
         assert last is not None
-        if last.choices[0].finish_reason is None:
-            logger.debug("no finish reason found")
-            continue
 
-        if last.choices[0].finish_reason.value in ["stop", "length"]:
-            logger.debug("no tool calls found")
-            fully_done = True
+        if last.choices[0].finish_reason:
+            if last.choices[0].finish_reason.value in ["stop", "length"]:
+                logger.debug("no tool calls found")
+                fully_done = True
+                continue
+
+        if last.choices[0].finish_reason is None and not has_tool_calls:
+            logger.debug("no finish reason found")
             continue
 
         logger.debug("tool calls found")
