@@ -14,3 +14,5 @@ def chat_completion_stream_responder(data: dict) -> CreateChatCompletionStreamRe
         case "openrouter":
             # TODO: implement openrouter responser
             return chat_completion_openrouter_stream_response(data)
+        case _:
+            return chat_completion_generic_stream_response(data)

@@ -7,7 +7,7 @@ from mcpx.client.transports.docker import DockerMCPServer
 
 
 class InferenceServer(BaseModel):
-    type: Literal["openai", "openrouter"] = Field(
+    type: Literal["openai", "openrouter", "gemini"] = Field(
         "openai", description="Type of inference server"
     )  # used to apply data mappers
     base_url: str = Field(

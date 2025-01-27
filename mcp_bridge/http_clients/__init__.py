@@ -28,8 +28,8 @@ def get_client() -> AsyncClient:
         return client
 
     # gemini models
-    if config.inference_server.type == "google":
-        pass
-        # TODO: implement google openai auth
+    if config.inference_server.type == "gemini":
+        client.headers["Authorization"] = rf"Bearer {config.inference_server.api_key}"
+        return client
 
     raise NotImplementedError("Inference Server Type not supported")

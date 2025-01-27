@@ -14,3 +14,5 @@ def chat_completion_requester(data: CreateChatCompletionRequest) -> dict:
         case "openrouter":
             # TODO: implement openrouter requester
             return chat_completion_openrouter_request(data)
+        case _:
+            return chat_completion_generic_request(data)
