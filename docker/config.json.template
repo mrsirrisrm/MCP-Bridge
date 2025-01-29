@@ -10,6 +10,6 @@
     }
     },
     "logging": {
-        "log_level": "DEBUG"
+        "log_level": "${MCP_BRIDGE_LOG_LEVEL}"
     }
 }
