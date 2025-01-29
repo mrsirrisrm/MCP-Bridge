@@ -1,12 +1,15 @@
 services:
   mcp-bridge:
     build:
-      context: .
+      context: ./docker
+      additional_contexts:
+         requirements: .
+      dockerfile: Dockerfile
     develop:
       watch:
         - path: mcp_bridge
           action: rebuild
-    container_name: mcp-bridge
+    container_name: mcp-bridge2
     ports:
       - "8000:8000"
     environment:
@@ -15,4 +18,7 @@ services:
       # - MCP_BRIDGE__CONFIG__JSON=
     # volumes:
     #   - ./config.json:/mcp_bridge/config.json
+    volumes:
+      - ./docker/config.json.template:/mcp_bridge/config.json.template
     restart: unless-stopped
+    env_file: ./creds.env

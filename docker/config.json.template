@@ -1,0 +1,15 @@
+{
+  "inference_server": {
+    "base_url": "${OPENAI_API_BASE_URL}",
+    "api_key": "${OPENAI_API_KEY}"
+  },
+  "mcp_servers": {
+    "fetch": {
+      "command": "uvx",
+      "args": ["mcp-server-fetch"]
+    }
+    },
+    "logging": {
+        "log_level": "DEBUG"
+    }
+}
