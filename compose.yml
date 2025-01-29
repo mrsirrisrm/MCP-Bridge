@@ -9,7 +9,7 @@ services:
       watch:
         - path: mcp_bridge
           action: rebuild
-    container_name: mcp-bridge2
+    container_name: mcp-bridge
     ports:
       - "8000:8000"
     environment:
