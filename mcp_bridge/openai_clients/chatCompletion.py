@@ -1,8 +1,13 @@
 import secrets
+import time
+from turtle import st
 from lmos_openai_types import (
+    ChatCompletionResponseMessage,
+    Choice1,
     CreateChatCompletionRequest,
     CreateChatCompletionResponse,
     ChatCompletionRequestMessage,
+    FinishReason1,
 )
 
 from .utils import call_tool, chat_completion_add_tools
@@ -12,6 +17,25 @@ from mcp_bridge.inference_engine_mappers.chat.responder import chat_completion_r
 from loguru import logger
 import json
 
+def format_error_as_chat_completion(message: str) -> CreateChatCompletionResponse:
+    return CreateChatCompletionResponse.model_validate(
+        {
+            "model": "MCP-Bridge",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "message": {
+                        "content": message,
+                        "role": "assistant",
+                    }
+                }
+            ],
+            "id": secrets.token_hex(16),
+            "created": int(time.time()),
+            "object": "chat.completion",
+        }
+    )
 
 async def chat_completions(
     request: CreateChatCompletionRequest,
@@ -23,26 +47,30 @@ async def chat_completions(
     while True:
         # logger.debug(request.model_dump_json())
 
-        text = (
-            await get_client().post(
+        response = await get_client().post(
                 "/chat/completions",
-                # content=request.model_dump_json(
-                #    exclude_defaults=True, exclude_none=True, exclude_unset=True
-                # ),
                 json=chat_completion_requester(request),
             )
-        ).text
+        text = response.text
         logger.debug(text)
         try:
             response = chat_completion_responder(json.loads(text))
         except Exception as e:
             logger.error(f"Error parsing response: {text}")
             logger.error(e)
-            return  # type: ignore
+            
+            # openrouter returns a json error message
+            try :
+                response = json.loads(text)
+                return format_error_as_chat_completion(f"Upstream error: {response['error']['message']}")
+            except Exception:
+                pass
+
+            return format_error_as_chat_completion(f"Error parsing response: {text}")
 
         if not response.choices:
             logger.error("no choices found in response")
-            return  # type: ignore
+            return format_error_as_chat_completion("no choices found in response")
 
         msg = response.choices[0].message
         msg = ChatCompletionRequestMessage(
