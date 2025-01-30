@@ -21,8 +21,9 @@ from mcp_bridge.inference_engine_mappers.chat.stream_responder import (
 from .utils import (
     call_tool,
     chat_completion_add_tools,
-    validate_if_json_object_parsable,
+    json_pretty_print,
     salvage_parsable_json_object,
+    validate_if_json_object_parsable,
 )
 from mcp_bridge.models import SSEData, upstream_error
 from mcp_bridge.http_clients import get_client
@@ -77,7 +78,7 @@ async def chat_completions(request: CreateChatCompletionRequest):
         #     exclude_defaults=True, exclude_none=True, exclude_unset=True
         # )
 
-        json_data = json.dumps(chat_completion_requester(request), indent=4, ensure_ascii=False)
+        json_data = json_pretty_print(chat_completion_requester(request))
 
         logger.debug("Request JSON:\n%s" % json_data)
 
