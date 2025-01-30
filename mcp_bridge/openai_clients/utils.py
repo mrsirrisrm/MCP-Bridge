@@ -9,6 +9,14 @@ from mcp_bridge.mcp_clients.McpClientManager import ClientManager
 from mcp_bridge.tool_mappers import mcp2openai
 
 
+def json_pretty_print(obj) -> str:
+    if type(obj) == bytes:
+        obj = obj.decode()
+    if type(obj) == str:
+        obj = json.loads(obj)
+    ret = json.dumps(obj, indent=4, ensure_ascii=False)
+    return ret
+
 def validate_if_json_object_parsable(content: str):
     try:
         json.loads(content)
