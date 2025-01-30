@@ -1,5 +1,8 @@
+import datetime
 import json
+import os
 import time
+import traceback
 from typing import Optional
 from secrets import token_hex
 from lmos_openai_types import (
@@ -8,13 +11,20 @@ from lmos_openai_types import (
     CreateChatCompletionRequest,
     CreateChatCompletionStreamResponse,
     Function1,
+    FinishReason1,
 )
 
 from mcp_bridge.inference_engine_mappers.chat.requester import chat_completion_requester
 from mcp_bridge.inference_engine_mappers.chat.stream_responder import (
     chat_completion_stream_responder,
 )
-from .utils import call_tool, chat_completion_add_tools
+from .utils import (
+    call_tool,
+    chat_completion_add_tools,
+    json_pretty_print,
+    salvage_parsable_json_object,
+    validate_if_json_object_parsable,
+)
 from mcp_bridge.models import SSEData, upstream_error
 from mcp_bridge.http_clients import get_client
 from loguru import logger
@@ -68,9 +78,9 @@ async def chat_completions(request: CreateChatCompletionRequest):
         #     exclude_defaults=True, exclude_none=True, exclude_unset=True
         # )
 
-        json_data = json.dumps(chat_completion_requester(request))
+        json_data = json_pretty_print(chat_completion_requester(request))
 
-        # logger.debug(json_data)
+        logger.debug("Request JSON:\n%s" % json_data)
 
         last: Optional[CreateChatCompletionStreamResponse] = None  # last message
 
@@ -211,6 +221,29 @@ async def chat_completions(request: CreateChatCompletionRequest):
                 # save the last message
                 last = parsed_data
 
+                # perform early stopping on parsable tool_call_json
+                if tool_call_json:
+                    if tool_call_json.strip().startswith("{"):
+                        if validate_if_json_object_parsable(tool_call_json):
+                            logger.debug(
+                                f"tool call json '{tool_call_json}' is parsable now."
+                            )
+                            logger.debug("exiting message receive loop")
+                            last.choices[0].finish_reason = FinishReason1.tool_calls
+                            break
+                        salvaged_json_object = salvage_parsable_json_object(
+                            tool_call_json
+                        )
+                        if salvaged_json_object:
+                            tool_call_json = salvaged_json_object
+                            logger.debug(
+                                f"tool call json '{tool_call_json}' is salvagable now."
+                            )
+                            logger.debug("salvaged json content:", tool_call_json)
+                            logger.debug("exiting message receive loop")
+                            last.choices[0].finish_reason = FinishReason1.tool_calls
+                            break
+
         # ideally we should check this properly
         assert last is not None
 
@@ -228,6 +261,9 @@ async def chat_completions(request: CreateChatCompletionRequest):
         logger.debug(
             f"{tool_call_name=} {tool_call_json=}"
         )  # this should not be error but its easier to debug
+
+        logger.debug("clearing tool contexts to prevent tool call loops")
+        request.tools = None
 
         # add received message to the history
         msg = ChatCompletionRequestMessage(

@@ -10,7 +10,7 @@ from lmos_openai_types import (
     FinishReason1,
 )
 
-from .utils import call_tool, chat_completion_add_tools
+from .utils import call_tool, chat_completion_add_tools, validate_if_json_object_parsable, json_pretty_print
 from mcp_bridge.http_clients import get_client
 from mcp_bridge.inference_engine_mappers.chat.requester import chat_completion_requester
 from mcp_bridge.inference_engine_mappers.chat.responder import chat_completion_responder
@@ -86,10 +86,21 @@ async def chat_completions(
             return response
 
         logger.debug("tool calls found")
+        
+        logger.debug("clearing tool contexts to prevent tool call loops")
+        request.tools = None
+        
         for tool_call in response.choices[0].message.tool_calls.root:
             logger.debug(
-                f"tool call: {tool_call.function.name} arguments: {json.loads(tool_call.function.arguments)}"
+                f"tool call: {tool_call.function.name}"
             )
+
+            if validate_if_json_object_parsable(tool):
+                logger.debug(f"arguments:\n{json_pretty_print(tool_call.function.arguments)}")
+            else:
+                logger.debug("non-json arguments given: %s" % tool_call.function.arguments)
+                logger.debug("unable to parse tool call argument as json. skipping...")
+                continue
 
             # FIXME: this can probably be done in parallel using asyncio gather
             tool_call_result = await call_tool(
