@@ -17,7 +17,7 @@ def get_client() -> AsyncClient:
 
     # generic openai
     if config.inference_server.type == "openai":
-        client.headers["Authorization"] = f"Bearer {config.inference_server.api_key}"
+        client.headers["Authorization"] = rf"Bearer {config.inference_server.api_key}"
         return client
 
     # openrouter

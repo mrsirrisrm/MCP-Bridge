@@ -95,7 +95,7 @@ async def chat_completions(
                 f"tool call: {tool_call.function.name}"
             )
 
-            if validate_if_json_object_parsable(tool):
+            if validate_if_json_object_parsable(tool_call.function.arguments):
                 logger.debug(f"arguments:\n{json_pretty_print(tool_call.function.arguments)}")
             else:
                 logger.debug("non-json arguments given: %s" % tool_call.function.arguments)

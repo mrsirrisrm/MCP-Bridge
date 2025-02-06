@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+import secrets
 import time
 import traceback
 from typing import Optional
@@ -264,6 +265,9 @@ async def chat_completions(request: CreateChatCompletionRequest):
 
         logger.debug("clearing tool contexts to prevent tool call loops")
         request.tools = None
+
+        if tool_call_id is None or tool_call_id == "":
+            tool_call_id = secrets.token_hex(16)
 
         # add received message to the history
         msg = ChatCompletionRequestMessage(
