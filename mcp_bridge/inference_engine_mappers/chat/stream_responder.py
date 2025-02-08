@@ -1,3 +1,4 @@
+from mcp_bridge.inference_engine_mappers.chat.gemini.stream_response import chat_completion_gemini_stream_response
 from .generic import chat_completion_generic_stream_response
 from .openrouter.stream_response import chat_completion_openrouter_stream_response
 from lmos_openai_types import CreateChatCompletionStreamResponse
@@ -14,5 +15,7 @@ def chat_completion_stream_responder(data: dict) -> CreateChatCompletionStreamRe
         case "openrouter":
             # TODO: implement openrouter responser
             return chat_completion_openrouter_stream_response(data)
+        case "gemini":
+            return chat_completion_gemini_stream_response(data)
         case _:
             return chat_completion_generic_stream_response(data)
